@@ -2,19 +2,17 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
-entity temporizador_3botones is
+entity temporizador_1boton is
     Port (
         reloj       : in  STD_LOGIC; 
-        boton_start : in  STD_LOGIC; -- Boton para iniciar (BOTON 0)
-        boton_stop  : in  STD_LOGIC; -- Boton para pausar (BOTON 1)
-        boton_reset : in  STD_LOGIC; -- Boton para reiniciar a cero (Boton 2)
+        boton       : in  STD_LOGIC; -- Boton unico para Start/Stop y Reset (BOTON 0)
         display_min : out STD_LOGIC_VECTOR(6 downto 0); 
         display_dec : out STD_LOGIC_VECTOR(6 downto 0); 
-        display_uni : out STD_LOGIC_VECTOR(6 downto 0) 
+        display_uni : out STD_LOGIC_VECTOR(6 downto 0)  
     );
-end temporizador_3botones;
+end temporizador_1boton;
 
-architecture Arq_Temp of temporizador_3botones is
+architecture Arq_Temp of temporizador_1boton is
 
     -- Componente del decodificador 7 segmentos BCD
     component dec_7seg is
@@ -34,7 +32,10 @@ architecture Arq_Temp of temporizador_3botones is
     signal u_min : integer range 0 to 9 := 0; -- Minutos (0 a 9)
     
     -- Bandera para saber si el temporizador esta contando o pausado
-    signal activo : std_logic := '0';
+    signal activo       : std_logic := '0';
+    signal boton_prev   : std_logic := '1';
+    signal cnt_presion  : integer range 0 to 2 := 0; -- Contador para medir el tiempo del boton
+    signal reset_hecho  : boolean := false;
 
     -- Buses BCD para conectar a los displays
     signal bcd_u_seg : std_logic_vector(3 downto 0);
@@ -44,12 +45,9 @@ architecture Arq_Temp of temporizador_3botones is
 begin
 
     -- Divisor de frecuencia: genera un pulso de 1 segundo
-    process(reloj, boton_reset)
+    process(reloj)
     begin
-        if boton_reset = '0' then 
-            cnt_50mhz <= 0;
-            pulso_1s <= '0';
-        elsif rising_edge(reloj) then
+        if rising_edge(reloj) then
             if cnt_50mhz = 49_999_999 then
                 cnt_50mhz <= 0;
                 pulso_1s <= '1';
@@ -60,42 +58,60 @@ begin
         end if;
     end process;
 
-    -- Control de los botones y avance del tiempo
-    process(reloj, boton_reset)
+    -- Control del boton unico y avance del tiempo
+    process(reloj)
     begin
-        -- Reset al presionar el boton 2
-        if boton_reset = '0' then 
-            u_seg  <= 0;
-            d_seg  <= 0;
-            u_min  <= 0;
-            activo <= '0';
-
-        elsif rising_edge(reloj) then
-
-            -- Lectura de los botones de control
-            if boton_start = '0' then     
-                activo <= '1'; -- Inicia la cuenta
-            elsif boton_stop = '0' then  
-                activo <= '0'; -- Pausa la cuenta
-            end if;
-
-            -- Incremento del temporizador cada segundo
-            if pulso_1s = '1' and activo = '1' then
-                if u_seg < 9 then
-                    u_seg <= u_seg + 1;
-                else
-                    u_seg <= 0;
-                    if d_seg < 5 then
-                        d_seg <= d_seg + 1;
-                    else
+        if rising_edge(reloj) then
+            
+            -- Evalua el tiempo presionado del boton cada segundo
+            if pulso_1s = '1' then
+                
+                -- Si el boton esta presionado (activo en 0)
+                if boton = '0' then
+                    if cnt_presion < 2 then
+                        cnt_presion <= cnt_presion + 1;
+                    end if;
+                    
+                    -- Reset al mantener presionado mas de 2 segundos
+                    if cnt_presion >= 1 and not reset_hecho then
+                        u_seg <= 0;
                         d_seg <= 0;
-                        if u_min < 9 then
-                            u_min <= u_min + 1;
+                        u_min <= 0;
+                        activo <= '0';
+                        reset_hecho <= true;
+                    end if;
+                else
+                    cnt_presion <= 0;
+                    reset_hecho <= false;
+                end if;
+
+                -- Incremento del temporizador cada segundo
+                if activo = '1' then
+                    if u_seg < 9 then
+                        u_seg <= u_seg + 1;
+                    else
+                        u_seg <= 0;
+                        if d_seg < 5 then
+                            d_seg <= d_seg + 1;
                         else
-                            activo <= '0'; -- Al llegar a 9:59 se detiene
+                            d_seg <= 0;
+                            if u_min < 9 then
+                                u_min <= u_min + 1;
+                            else
+                                activo <= '0'; -- Al llegar a 9:59 se detiene
+                            end if;
                         end if;
                     end if;
                 end if;
+            end if;
+
+            -- Detecta cuando se suelta el boton (pulsacion corta para Start/Stop)
+            boton_prev <= boton;
+            if boton_prev = '0' and boton = '1' then 
+                if cnt_presion < 2 and not reset_hecho then
+                    activo <= not activo; -- Alterna entre iniciar y pausar
+                end if;
+                cnt_presion <= 0;
             end if;
 
         end if;
