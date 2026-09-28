@@ -4,13 +4,13 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity control_espacio is
     Port (
-        reloj_50mhz      : in  STD_LOGIC; -- Reloj DE0
-        reiniciar        : in  STD_LOGIC; -- Boton reset (BTN0)
-        persona_presente : in  STD_LOGIC; -- Switch sensor (SW0)
-        alarma_led       : out STD_LOGIC; -- LED alarma
-        felicitacion_led : out STD_LOGIC; -- LED bien hecho
-        display_decenas  : out STD_LOGIC_VECTOR(6 downto 0);
-        display_unidades : out STD_LOGIC_VECTOR(6 downto 0)  
+        reloj_50mhz      : in  STD_LOGIC; 
+        reiniciar        : in  STD_LOGIC; -- Boton reset (BOTON 0)
+        persona_presente : in  STD_LOGIC; -- Switch(SW0)
+        alarma_led       : out STD_LOGIC; 
+        felicitacion_led : out STD_LOGIC; 
+        display_decenas  : out STD_LOGIC_VECTOR(6 downto 0); 
+        display_unidades : out STD_LOGIC_VECTOR(6 downto 0) 
     );
 end control_espacio;
 
